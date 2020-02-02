@@ -11,12 +11,13 @@ import org.jsoup.select.Elements;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Set;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.stream.Collectors;
 
 public class GratkaScraper implements Scraper {
 
-    private final static Logger LOGGER = Logger.getLogger(GratkaScraper.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(GratkaScraper.class);
     private DocumentExtractor documentExtractor = new DocumentExtractor();
 
     @Override
@@ -28,25 +29,29 @@ public class GratkaScraper implements Scraper {
 
     @Override
     public Offer extractOfferData(String url) {
-        LOGGER.info("Fetching data from " + url);
+        LOG.info("Fetching data from " + url);
         Document doc = documentExtractor.apply(url);
         OfferDetails offerDetails = new OfferDetails();
-        extractOfferDetails(offerDetails, doc.select(".parameters__rolled"));
-        return Offer.builder()
-                .url(url)
-                .title(doc.select(".sticker__title").text())
-                .textAbout(doc.select(".description__container").text())
-                .price(extractPrice(doc.select(".priceInfo__value")))
-                .m2Price(extractM2Price(doc.select(".priceInfo__additional")))
-                .district(offerDetails.getDistrict())
-                .floor(offerDetails.getFloor())
-                .year(offerDetails.getYear())
-                .area(offerDetails.getArea())
-                .offerService("Gratka")
-                .roomNumber(offerDetails.getRoomNumber())
-                .rentPayments(offerDetails.getRentPayment())
-                .imageUrl(extractImageUrl(doc.select(".gallery")))
-                .build();
+        try {
+            extractOfferDetails(offerDetails, doc.select(".parameters__rolled"));
+            return Offer.builder()
+                    .url(url)
+                    .title(doc.select(".sticker__title").text())
+                    .textAbout(doc.select(".description__container").text())
+                    .price(extractPrice(doc.select(".priceInfo__value")))
+                    .m2Price(extractM2Price(doc.select(".priceInfo__additional")))
+                    .district(offerDetails.getDistrict())
+                    .floor(offerDetails.getFloor())
+                    .year(offerDetails.getYear())
+                    .area(offerDetails.getArea())
+                    .offerService("Gratka")
+                    .roomNumber(offerDetails.getRoomNumber())
+                    .rentPayments(offerDetails.getRentPayment())
+                    .imageUrl(extractImageUrl(doc.select(".gallery")))
+                    .build();
+        } catch (NumberFormatException exc) {
+            return null;
+        }
     }
 
     private String extractOfferURL(Element el) {
@@ -58,11 +63,11 @@ public class GratkaScraper implements Scraper {
     }
 
     private BigDecimal extractPrice(Elements priceDiv) {
-        String price = priceDiv.text().split(",")[0];
+        String price = priceDiv.text().split(",")[0].replaceAll("\\s+", "");
         if (!price.chars().allMatch(Character::isDigit)) {
             return new BigDecimal(0);
         }
-        return new BigDecimal(price.replaceAll("\\s+", ""));
+        return new BigDecimal(price);
     }
 
     private BigDecimal extractM2Price(Elements priceDiv) {

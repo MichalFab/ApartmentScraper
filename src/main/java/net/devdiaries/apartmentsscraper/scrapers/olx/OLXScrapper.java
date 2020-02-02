@@ -9,9 +9,11 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
+
 import java.math.BigDecimal;
 import java.util.Set;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.stream.Collectors;
 
 import static java.util.Optional.ofNullable;
@@ -19,7 +21,8 @@ import static java.util.Optional.ofNullable;
 
 public class OLXScrapper implements Scraper {
 
-    private final static Logger LOGGER = Logger.getLogger(OLXScrapper.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(OLXScrapper.class);
+
     private DocumentExtractor documentExtractor = new DocumentExtractor();
     private OtodomScraper otodomScraper = new OtodomScraper();
 
@@ -37,27 +40,30 @@ public class OLXScrapper implements Scraper {
         if (url.startsWith("https://www.otodom.pl")) {
             return otodomScraper.extractOfferData(url);
         } else {
-            LOGGER.info("Fetching data from " + url);
-//        if (url.startsWith("https://www.olx.pl")) {
+            LOG.info("Fetching data from " + url);
             Document doc = documentExtractor.apply(url);
-
-            OfferDetails offerDetails = new OfferDetails();
-            extractOfferDetails(offerDetails, doc.select(".details"));
-            return Offer.builder()
-                    .title(extractTitle(doc.select(".offer-titlebox")))
-                    .url(url)
-                    .offerService("Olx")
-                    .area(offerDetails.getArea())
-                    .roomNumber(offerDetails.getRoomNumber())
-                    .floor(offerDetails.getFloor())
-                    .m2Price(offerDetails.getM2Price())
-                    .isPrivate(offerDetails.getIsPrivate())
-                    .district(ofNullable(extractDistrict(doc.select(".show-map-link"))).orElse(null))
-                    .price(extractPrice(doc.select(".price-label")))
-                    .imageUrl(extractImageUrl(doc.select(".photo-glow")))
-                    .textAbout(extractText(doc.select("#textContent")))
-                    .build();
-        }
+            try {
+                OfferDetails offerDetails = new OfferDetails();
+                extractOfferDetails(offerDetails, doc.select(".details"));
+                return Offer.builder()
+                        .title(extractTitle(doc.select(".offer-titlebox")))
+                        .url(url)
+                        .offerService("Olx")
+                        .area(offerDetails.getArea())
+                        .roomNumber(offerDetails.getRoomNumber())
+                        .floor(offerDetails.getFloor())
+                        .m2Price(offerDetails.getM2Price())
+                        .isPrivate(offerDetails.getIsPrivate())
+                        .district(ofNullable(extractDistrict(doc.select(".show-map-link"))).orElse(null))
+                        .price(extractPrice(doc.select(".price-label")))
+                        .imageUrl(extractImageUrl(doc.select(".photo-glow")))
+                        .textAbout(extractText(doc.select("#textContent")))
+                        .build();
+            } catch (NumberFormatException exc) {
+                LOG.error(exc.getMessage());
+                return null;
+            }
+         }
     }
 
     private String extractDistrict(Elements locationDiv) {

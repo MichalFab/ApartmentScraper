@@ -7,18 +7,19 @@ import net.devdiaries.apartmentsscraper.scrapers.Scraper;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.AbstractMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class GumtreeScraper implements Scraper {
 
-    private final static Logger LOGGER = Logger.getLogger(GumtreeScraper.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(GumtreeScraper.class);
     private DocumentExtractor documentExtractor = new DocumentExtractor();
 
     private Map<String, String> cityUrls = Map.ofEntries(new AbstractMap.SimpleEntry<>("wroclaw", "https://www.gumtree.pl/s-mieszkania-i-domy-sprzedam-i-kupie/wroclaw/v1c9073l3200114p1"),
@@ -46,24 +47,28 @@ public class GumtreeScraper implements Scraper {
 
     @Override
     public Offer extractOfferData(String url) {
-        LOGGER.info("Fetching data from " + url);
+        LOG.info("Fetching data from " + url);
         Document doc = documentExtractor.apply(url);
         OfferDetails offerDetails = new OfferDetails();
-        BigDecimal price = extractPrice(doc.select(".amount").first());
-        extractOfferDetails(offerDetails, doc.select(".selMenu"), price);
-        return Offer.builder()
-                .url(url)
-                .title(doc.select(".myAdTitle").text())
-                .offerService("Gumtree")
-                .price(price)
-                .imageUrl(extractImageUrl(doc.select(".vip-gallery")))
-                .isPrivate(offerDetails.getIsPrivate())
-                .roomNumber(offerDetails.getRoomNumber())
-                .area(offerDetails.getArea())
-                .m2Price(offerDetails.getM2Price())
-                .city(url.split("/")[4])
-                .textAbout(extractText(doc.select(".description")))
-                .build();
+        try {
+            BigDecimal price = extractPrice(doc.select(".amount").first());
+            extractOfferDetails(offerDetails, doc.select(".selMenu"), price);
+            return Offer.builder()
+                    .url(url)
+                    .title(doc.select(".myAdTitle").text())
+                    .offerService("Gumtree")
+                    .price(price)
+                    .imageUrl(extractImageUrl(doc.select(".vip-gallery")))
+                    .isPrivate(offerDetails.getIsPrivate())
+                    .roomNumber(offerDetails.getRoomNumber())
+                    .area(offerDetails.getArea())
+                    .m2Price(offerDetails.getM2Price())
+                    .city(url.split("/")[4])
+                    .textAbout(extractText(doc.select(".description")))
+                    .build();
+        } catch (NumberFormatException exc) {
+            return null;
+        }
     }
 
     private String extractText(Elements textDiv) {
@@ -89,7 +94,7 @@ public class GumtreeScraper implements Scraper {
                 try {
                     offerDetails.setRoomNumber(Integer.valueOf(detail.select(".value").text().split(" ")[0]));
                 } catch (NumberFormatException ex) {
-                    LOGGER.info("Cannot parse rooms number");
+                    LOG.error("Cannot parse rooms number");
                 }
             }
             if (detail.select(".name").text().equals("Wielkość (m2)")) {
@@ -98,7 +103,7 @@ public class GumtreeScraper implements Scraper {
                     offerDetails.setArea(area);
                     offerDetails.setM2Price(price.divide(new BigDecimal(area), RoundingMode.CEILING));
                 } catch (NumberFormatException ex) {
-                    LOGGER.info("Cannot parse M2 price");
+                    LOG.error("Cannot parse M2 price");
                 }
             }
         }
